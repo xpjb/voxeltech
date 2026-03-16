@@ -1,0 +1,11 @@
+[package]
+name = "interestingtech"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sdl3 = { version = "0.17", features = ["raw-window-handle", "build-from-source"] }
+wgpu = "23"
+pollster = "0.4"
+bytemuck = { version = "1.21", features = ["derive"] }
+glam = "0.29"
