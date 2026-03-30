@@ -326,12 +326,17 @@ fn screen_to_tile(screen_x: i32, screen_y: i32, width: u32, height: u32, camera:
     let ndc_x = (screen_x as f32 / width) * 2.0 - 1.0;
     let ndc_y = 1.0 - (screen_y as f32 / height) * 2.0;
     let view_proj_inv = camera.view_projection_matrix().inverse();
-    // Unproject using near plane (z=-1 in NDC) for orthographic
+    // Unproject to get a point on the picking ray (near plane in NDC)
     let clip_near = glam::Vec4::new(ndc_x, ndc_y, -1.0, 1.0);
-    let world = view_proj_inv * clip_near;
-    let world = world / world.w;
-    let tx = (world.x / TILE_SIZE).floor() as i32;
-    let tz = (world.z / TILE_SIZE).floor() as i32;
+    let world_near = view_proj_inv * clip_near;
+    let world_near = world_near / world_near.w;
+    let ray_origin = glam::Vec3::new(world_near.x, world_near.y, world_near.z);
+    // Ray is parallel to view direction (orthographic); intersect with ground plane y=0
+    let view_dir = (camera.target - camera.eye).normalize();
+    let t = -ray_origin.y / view_dir.y;
+    let ground = ray_origin + t * view_dir;
+    let tx = (ground.x / TILE_SIZE).floor() as i32;
+    let tz = (ground.z / TILE_SIZE).floor() as i32;
     IVec2::new(tx, tz)
 }
 
