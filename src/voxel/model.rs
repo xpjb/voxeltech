@@ -4,6 +4,7 @@ use glam::{IVec3, Vec3, Vec4};
 
 /// RGBA colors per voxel. Layout: linearized [z][y][x], length = dim.x * dim.y * dim.z
 /// Alpha < 0.5 is considered air (no mesh generated)
+#[derive(Clone)]
 pub struct VoxelModel {
     pub data: Vec<Vec4>,
     pub dim: IVec3,
