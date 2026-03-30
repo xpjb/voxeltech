@@ -346,7 +346,10 @@ pub fn run(single_structure: Option<u8>) {
                     if app_mode == AppMode::VoxelEditor {
                         if let Some(sid) = game_state.selected_structure {
                             let model = &models[sid as usize];
-                            let (origin, dir) = fly_cam.ray_from_pixel(mx, my, w, h);
+                            // Relative mouselook: cursor is hidden/warped; SDL click coords are unreliable.
+                            // Match FPS-style block targeting through the viewport center.
+                            let (pick_x, pick_y) = (w as f32 * 0.5, h as f32 * 0.5);
+                            let (origin, dir) = fly_cam.ray_from_pixel(pick_x, pick_y, w, h);
                             if mouse_btn == MouseButton::Middle {
                                 if let Some(hit) = raycast_voxels(model, origin, dir) {
                                     if let Some(c) = model.get(hit.solid.x, hit.solid.y, hit.solid.z) {

@@ -116,7 +116,9 @@ impl FlyCamera {
         let h = height.max(1) as f32;
         let ndc_x = (screen_x / w) * 2.0 - 1.0;
         let ndc_y = 1.0 - (screen_y / h) * 2.0;
-        let aspect = (self.viewport_width / self.viewport_height.max(1.0)).max(0.001);
+        // Use the same width/height as NDC (caller's window size), not cached viewport:
+        // `fly_cam.resize` runs after input each frame, so aspect would lag on resize.
+        let aspect = (w / h.max(1.0)).max(0.001);
         let tan_half = (self.fov_y * 0.5).tan();
         // View space: −Z forward (same as glam look_at_rh + perspective_rh).
         let dir_view = Vec3::new(
