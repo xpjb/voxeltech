@@ -18,6 +18,7 @@ use crate::render::camera::Camera;
 use crate::render::fly_camera::FlyCamera;
 use crate::render::instance::InstanceBuffer;
 use crate::render::mesh::Mesh;
+use crate::render::editor_hud::{EditorHud, EditorHudDraw};
 use crate::render::palette_overlay::{PaletteDraw, PalettePipeline, pick_swatch};
 use crate::render::pipeline::VoxelPipeline;
 use crate::voxel::model::VoxelModel;
@@ -116,6 +117,7 @@ pub fn run(single_structure: Option<u8>) {
 
     let pipeline = VoxelPipeline::new(&device, surface_config.format);
     let palette_pipeline = PalettePipeline::new(&device, surface_config.format);
+    let editor_hud = EditorHud::new(&device, surface_config.format);
 
     let mut meshes: Vec<Mesh> = models
         .iter()
@@ -152,6 +154,7 @@ pub fn run(single_structure: Option<u8>) {
     let mut brush_color = Vec4::new(1.0, 1.0, 1.0, 1.0);
     let mut palette_open = false;
     let mut palette_cache: Option<(u32, u32, PaletteDraw)> = None;
+    let mut editor_hud_cache: Option<(u32, u32, [u32; 4], EditorHudDraw)> = None;
     let mut last_frame = Instant::now();
 
     while running {
@@ -372,11 +375,11 @@ pub fn run(single_structure: Option<u8>) {
                                         if p.x >= 0
                                             && p.x < model.dim.x
                                             && p.y >= 0
-                                            && p.y < model.dim.y
                                             && p.z >= 0
                                             && p.z < model.dim.z
                                             && !models[sid as usize].is_solid(p.x, p.y, p.z)
                                         {
+                                            models[sid as usize].ensure_height_for_y(p.y);
                                             models[sid as usize].set(p.x, p.y, p.z, brush_color);
                                             rebuild_mesh(&device, &mut meshes, &models, sid as usize);
                                         }
@@ -547,6 +550,52 @@ pub fn run(single_structure: Option<u8>) {
                         base_instance += count;
                     }
                 }
+            }
+
+            if app_mode == AppMode::VoxelEditor && !palette_open {
+                let b = brush_color;
+                let brush_key = [b.x.to_bits(), b.y.to_bits(), b.z.to_bits(), b.w.to_bits()];
+                let hud_rebuild = editor_hud_cache
+                    .as_ref()
+                    .map_or(true, |(pw, ph, pk, _)| {
+                        *pw != width || *ph != height || *pk != brush_key
+                    });
+                if hud_rebuild {
+                    editor_hud_cache = Some((
+                        width,
+                        height,
+                        brush_key,
+                        EditorHudDraw::rebuild(&device, width, height, brush_color),
+                    ));
+                }
+                if let Some((_, _, _, ref hud)) = editor_hud_cache {
+                    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: None,
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: &view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Load,
+                                store: wgpu::StoreOp::Store,
+                            },
+                        })],
+                        depth_stencil_attachment: None,
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
+                    });
+                    pass.set_pipeline(&editor_hud.line_pipeline);
+                    pass.set_vertex_buffer(0, hud.line_vertex_buffer.slice(..));
+                    pass.draw(0..hud.line_vertex_count, 0..1);
+                    pass.set_pipeline(&editor_hud.tri_pipeline);
+                    pass.set_vertex_buffer(0, hud.swatch_vertex_buffer.slice(..));
+                    pass.set_index_buffer(
+                        hud.swatch_index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
+                    pass.draw_indexed(0..hud.swatch_index_count, 0, 0..1);
+                }
+            } else {
+                editor_hud_cache = None;
             }
 
             if palette_open {

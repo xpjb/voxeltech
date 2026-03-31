@@ -46,6 +46,43 @@ impl VoxelModel {
         }
     }
 
+    /// Grow storage in +Y so voxels at `y` can be stored (`dim.y` becomes at least `y + 1`).
+    /// Existing data is preserved; new layers are air.
+    pub fn ensure_height_for_y(&mut self, y: i32) {
+        if y < 0 {
+            return;
+        }
+        let need_y = y + 1;
+        if need_y <= self.dim.y {
+            return;
+        }
+        self.resize_dim(IVec3::new(self.dim.x, need_y, self.dim.z));
+    }
+
+    fn resize_dim(&mut self, new_dim: IVec3) {
+        let old_dim = self.dim;
+        if new_dim.x < old_dim.x
+            || new_dim.y < old_dim.y
+            || new_dim.z < old_dim.z
+            || new_dim == old_dim
+        {
+            return;
+        }
+        let new_len = (new_dim.x * new_dim.y * new_dim.z) as usize;
+        let mut new_data = vec![Vec4::ZERO; new_len];
+        for z in 0..old_dim.z {
+            for y in 0..old_dim.y {
+                for x in 0..old_dim.x {
+                    let old_idx = (z * old_dim.x * old_dim.y + y * old_dim.x + x) as usize;
+                    let new_idx = (z * new_dim.x * new_dim.y + y * new_dim.x + x) as usize;
+                    new_data[new_idx] = self.data[old_idx];
+                }
+            }
+        }
+        self.data = new_data;
+        self.dim = new_dim;
+    }
+
     /// Convert voxel model to triangle mesh.
     /// Only emits faces that have no adjacent solid voxel (face culling).
     /// Vertex format: position (Vec3), normal (Vec3), color (Vec4)

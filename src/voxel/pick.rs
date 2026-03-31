@@ -13,6 +13,9 @@ pub struct VoxelRayHit {
 }
 
 /// Returns first solid along the ray inside `[0, dim)` unit cubes, or `None`.
+///
+/// One extra layer of empty space at `y == dim.y` is included in the walk so rays can approach
+/// the top face from above and yield [`VoxelRayHit::air_before`] at column height (for growing +Y).
 pub fn raycast_voxels(model: &VoxelModel, origin: Vec3, dir: Vec3) -> Option<VoxelRayHit> {
     let dir = dir.normalize_or_zero();
     if dir.length_squared() < 1e-12 {
@@ -29,7 +32,7 @@ pub fn raycast_voxels(model: &VoxelModel, origin: Vec3, dir: Vec3) -> Option<Vox
     let mut y = p.y.floor() as i32;
     let mut z = p.z.floor() as i32;
 
-    if x < 0 || x >= dim.x || y < 0 || y >= dim.y || z < 0 || z >= dim.z {
+    if x < 0 || x >= dim.x || y < 0 || y > dim.y || z < 0 || z >= dim.z {
         return None;
     }
 
@@ -99,7 +102,7 @@ pub fn raycast_voxels(model: &VoxelModel, origin: Vec3, dir: Vec3) -> Option<Vox
     let mut prev_air: Option<IVec3> = None;
 
     for _ in 0..max_steps {
-        if x < 0 || x >= dim.x || y < 0 || y >= dim.y || z < 0 || z >= dim.z {
+        if x < 0 || x >= dim.x || y < 0 || y > dim.y || z < 0 || z >= dim.z {
             return None;
         }
 
@@ -144,7 +147,7 @@ fn air_cell_toward_camera(solid: IVec3, dir: Vec3, dim: IVec3) -> IVec3 {
         IVec3::new(0, 0, -dir.z.signum() as i32)
     };
     let c = solid + d;
-    if c.x >= 0 && c.x < dim.x && c.y >= 0 && c.y < dim.y && c.z >= 0 && c.z < dim.z {
+    if c.x >= 0 && c.x < dim.x && c.y >= 0 && c.y <= dim.y && c.z >= 0 && c.z < dim.z {
         c
     } else {
         solid
